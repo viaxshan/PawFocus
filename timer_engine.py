@@ -48,7 +48,7 @@ class StudyTimer:
         self.studies[self.active_method][2] = rounds
 
     def tick(self) -> str:
-        """Determines the state of the application and decides to tick down, switch states, or finish."""
+        """Determines the state of the application and decides to tick down, switch states, or finish.i"""
         if not self.is_running:
             return "PAUSED"
             
