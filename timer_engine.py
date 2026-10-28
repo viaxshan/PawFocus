@@ -2,17 +2,17 @@ class StudyTimer:
     """StudyTimer class that manages the time aspects of the application."""
     def __init__(self):
         self.studies = {
-            "Pomodoro": [25, 5, 4], # type mapped to studytime, breaktime, and number of rounds
+            "Pawmodoro": [25, 5, 4], # type mapped to studytime, breaktime, and number of rounds
             "52/17": [52, 17, 2],
             "90/20": [90, 20, 2],
             "Custom": [25, 5, 1]
         }
 
         # initialize instance variables to default to Pomodoro
-        self.active_method = "Pomodoro"
-        self.study_mins = self.studies["Pomodoro"][0]
-        self.study_break = self.studies["Pomodoro"][1]
-        self.study_rounds = self.studies["Pomodoro"][2]
+        self.active_method = "Pawmodoro"
+        self.study_mins = self.studies["Pawmodoro"][0]
+        self.study_break = self.studies["Pawmodoro"][1]
+        self.study_rounds = self.studies["Pawmodoro"][2]
 
         self.time_left_seconds = self.study_mins * 60
         self.current_round = 1

@@ -28,7 +28,7 @@ elif sys.platform.startswith("darwin"):
 class DashboardWindow(tk.Tk):
     def __init__(self, methods_list):
         super().__init__()
-        self.title("BookCat Dashboard")
+        self.title("PawFocus Dashboard")
         self.geometry("380x640")
         self.config(bg=PALETTE["bg_light"])
         
@@ -36,7 +36,7 @@ class DashboardWindow(tk.Tk):
         self.frame.pack(fill="both", expand=True)
         
         self.title_label = tk.Label(
-            self.frame, text="BookCat Menu", font=(FONT_NAME, 20, "bold"), 
+            self.frame, text="PawFocus Menu", font=(FONT_NAME, 20, "bold"), 
             fg=PALETTE["text_dark"], bg=PALETTE["bg_light"]
         )
         self.title_label.pack(pady=5)
