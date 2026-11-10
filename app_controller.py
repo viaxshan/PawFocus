@@ -1,5 +1,8 @@
+import sys
 import tkinter as tk
 from tkinter import messagebox
+
+from ui_views import FONT_NAME, PALETTE
 
 DRAG_THRESHOLD = 4     # pixels the mouse must move before a click counts as a drag
 KEEP_ON_TOP_MS = 500   # how often the cat re-asserts that it's the top window
@@ -22,10 +25,28 @@ class AppController:
         self.view.toggle_overlay_clock_btn.config(command=self.handle_toggle_clock)
         self.view.size_slider.config(command=self.handle_scale_slider)
 
-        # Closing the dashboard is the only way to quit; the cat itself can't be closed
-        self.view.protocol("WM_DELETE_WINDOW", self.handle_quit)
+        # Closing the dashboard only hides it; the cat keeps running.
+        # Right-click the cat to reopen the dashboard or quit for good.
+        self.close_hint_shown = False
+        self.view.protocol("WM_DELETE_WINDOW", self.hide_dashboard)
         self.overlay.protocol("WM_DELETE_WINDOW", lambda: None)
         self.todo_view.protocol("WM_DELETE_WINDOW", self.todo_view.close)
+        if sys.platform.startswith("darwin"):
+            # Clicking the Dock icon brings the dashboard back
+            self.view.createcommand("::tk::mac::ReopenApplication", self.show_dashboard)
+
+        self.cat_menu = tk.Menu(
+            self.overlay, tearoff=0, font=(FONT_NAME, 12),
+            bg=PALETTE["yellow"], fg=PALETTE["text_dark"],
+            activebackground=PALETTE["pink"], activeforeground=PALETTE["text_dark"]
+        )
+        self.cat_menu.add_command(label="🐾 Open PawFocus Settings", command=self.show_dashboard)
+        self.cat_menu.add_command(label="📝 Show / Hide To-Do List", command=self.toggle_todo)
+        self.cat_menu.add_separator()
+        self.cat_menu.add_command(label="❌ Quit PawFocus", command=self.handle_quit)
+        # Right-click is Button-3 on Windows/Linux but Button-2 on macOS
+        right_click = "<Button-2>" if sys.platform.startswith("darwin") else "<Button-3>"
+        self.overlay.canvas.bind(right_click, self.show_cat_menu)
 
         # Click the cat = open/close to-do list. Click and drag = move the cat.
         self.overlay.x_offset = 0
@@ -83,7 +104,30 @@ class AppController:
         except tk.TclError:
             pass
 
+    # ---------- dashboard window / quitting ----------
+
+    def hide_dashboard(self):
+        self.view.withdraw()
+        if not self.close_hint_shown:
+            self.close_hint_shown = True
+            self.show_popup(
+                "PawFocus is still running",
+                "Your kitty timer keeps going!\n\nRight-click the cat to reopen the settings or quit PawFocus."
+            )
+
+    def show_dashboard(self):
+        self.view.deiconify()
+        self.view.lift()
+        self.view.focus_force()
+
+    def show_cat_menu(self, event):
+        try:
+            self.cat_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.cat_menu.grab_release()
+
     def handle_quit(self):
+        self.timer.is_running = False
         self.todo_list.save()
         self.view.destroy()
 

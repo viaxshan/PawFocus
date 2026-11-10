@@ -34,7 +34,9 @@ A cozy, pastel-themed desktop overlay study timer built with Python and Tkinter.
 
 3. **Control the Kitty Overlay:**
    * **Start:** Click **▶ START**. Your settings entry boxes will lock, your kitty will switch to reading mode, and the clock will start counting down.
-   * **Move:** Left-click and drag anywhere on the cat to move it around your desktop. It stays on top of all your other windows (it re-checks every half second), and only goes away when you close the dashboard.
+   * **Move:** Left-click and drag anywhere on the cat to move it around your desktop. It stays on top of all your other windows (it re-checks every half second).
+   * **Right-click Menu:** Right-click the cat (two-finger click on a Mac trackpad) to reopen the PawFocus settings window, show/hide the to-do list, or **Quit PawFocus** for good.
+   * **Close the Dashboard:** Closing the dashboard window only hides it. The cat and timer keep running. Reopen it from the cat's right-click menu (or the Dock icon on Mac).
    * **To-Do List:** Click the cat (without dragging) to drop down your to-do list. Type a task and press Enter or **+ Add**, tick the box to mark it done, **✕** to delete, and **🧹 clear finished** to tidy up. Click the cat again or press Esc to fold it away. Tasks are saved to `todos.json` in the project folder, so they're still there next time.
    * **Hide Time:** Click **Hide/Show Clock on Cat** on the dashboard to toggle the numbers on and off if they distract you.
    * **Resize:** Move the **Kitty Scale Size Settings** slider to instantly resize the cat to 50%, 100%, or 150%.

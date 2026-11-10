@@ -528,14 +528,19 @@ class KittyOverlay(tk.Toplevel):
 class TodoDropdown(tk.Toplevel):
     """Borderless to-do panel that drops down under the cat when you click it."""
 
-    WIDTH = 250
-    MAX_LIST_HEIGHT = 220  # list scrolls after this many pixels
+    WIDTH = 290
+    MAX_LIST_HEIGHT = 260  # list scrolls after this many pixels
     GAP = 6                # space between the cat and the panel
+
+    # Font sizes for the panel, all in one place so they're easy to tweak
+    TITLE_SIZE = 15
+    TASK_SIZE = 13
+    SMALL_SIZE = 11
 
     def __init__(self, parent):
         super().__init__(parent)
         self.withdraw()
-        self.overrideredirect(True)
+        self._make_borderless()
         self.attributes("-topmost", True)
         self.config(bg=PALETTE["text_dark"])  # shows through as a 2px outline
         self.is_open = False
@@ -547,8 +552,10 @@ class TodoDropdown(tk.Toplevel):
         self.on_delete = None
         self.on_clear_done = None
 
-        self.task_font = tkfont.Font(self, family=FONT_NAME, size=10)
-        self.done_font = tkfont.Font(self, family=FONT_NAME, size=10, overstrike=True)
+        self.task_font = tkfont.Font(self, family=FONT_NAME, size=self.TASK_SIZE)
+        self.done_font = tkfont.Font(self, family=FONT_NAME, size=self.TASK_SIZE, overstrike=True)
+        self.small_font = tkfont.Font(self, family=FONT_NAME, size=self.SMALL_SIZE)
+        self.small_bold_font = tkfont.Font(self, family=FONT_NAME, size=self.SMALL_SIZE, weight="bold")
 
         body = tk.Frame(self, bg=PALETTE["yellow"], padx=8, pady=8)
         body.pack(fill="both", expand=True, padx=2, pady=2)
@@ -556,11 +563,11 @@ class TodoDropdown(tk.Toplevel):
         header = tk.Frame(body, bg=PALETTE["yellow"])
         header.pack(fill="x")
         tk.Label(
-            header, text="📝 To-Do List", font=(FONT_NAME, 12, "bold"),
+            header, text="📝 To-Do List", font=(FONT_NAME, self.TITLE_SIZE, "bold"),
             fg=PALETTE["text_dark"], bg=PALETTE["yellow"]
         ).pack(side="left")
         self.count_label = tk.Label(
-            header, text="", font=(FONT_NAME, 9),
+            header, text="", font=self.small_font,
             fg=PALETTE["dark_pink"], bg=PALETTE["yellow"]
         )
         self.count_label.pack(side="right")
@@ -570,8 +577,10 @@ class TodoDropdown(tk.Toplevel):
         entry_box, self.entry = make_bordered_entry(entry_row, self.task_font)
         entry_box.pack(side="left", fill="both", expand=True)
         self.entry.bind("<Return>", lambda e: self._submit())
+        # Clicking the box grabs the keyboard, even when the dashboard is hidden/minimized
+        self.entry.bind("<Button-1>", lambda e: self.focus_entry(), add="+")
         self.add_btn = FlatButton(
-            entry_row, text="+ Add", font=(FONT_NAME, 9, "bold"),
+            entry_row, text="+ Add", font=self.small_bold_font,
             bg=PALETTE["blue"], border=1, command=self._submit
         )
         self.add_btn.pack(side="left", fill="y", padx=(4, 0))
@@ -593,7 +602,7 @@ class TodoDropdown(tk.Toplevel):
         )
 
         self.clear_btn = tk.Label(
-            body, text="🧹 clear finished", font=(FONT_NAME, 9),
+            body, text="🧹 clear finished", font=self.small_font,
             fg=PALETTE["dark_pink"], bg=PALETTE["yellow"], cursor="hand2"
         )
         self.clear_btn.pack(anchor="e", pady=(6, 0))
@@ -604,6 +613,30 @@ class TodoDropdown(tk.Toplevel):
         self.bind("<Button-4>", lambda e: self.list_canvas.yview_scroll(-1, "units"))
         self.bind("<Button-5>", lambda e: self.list_canvas.yview_scroll(1, "units"))
         self.bind("<Escape>", lambda e: self.close())
+
+    def _make_borderless(self):
+        """Removes the title bar while still letting the panel receive typing.
+
+        On macOS, Tk marks overrideredirect windows as "never take keyboard focus",
+        so typing only worked while the dashboard window was active. A "plain" Mac
+        window is just as borderless but is allowed to take the keyboard itself.
+        """
+        if sys.platform.startswith("darwin"):
+            try:
+                self.tk.call("::tk::unsupported::MacWindowStyle", "style", str(self), "plain", "none")
+                return
+            except tk.TclError:
+                pass  # very old Tk: fall back to the regular borderless window
+        self.overrideredirect(True)
+
+    def focus_entry(self):
+        """Make this panel the active window and put the cursor in the text box."""
+        try:
+            self.lift()
+            self.focus_force()
+            self.entry.focus_force()
+        except tk.TclError:
+            pass
 
     def _submit(self):
         if self.on_add and self.on_add(self.entry.get()):
@@ -623,7 +656,7 @@ class TodoDropdown(tk.Toplevel):
         if not items:
             tk.Label(
                 self.rows_frame, text="Nothing yet, add a task! =^.^=",
-                font=(FONT_NAME, 9), fg=PALETTE["grey"], bg=PALETTE["yellow"]
+                font=self.small_font, fg=PALETTE["grey"], bg=PALETTE["yellow"]
             ).pack(pady=8)
 
         for index, item in enumerate(items):
@@ -641,7 +674,7 @@ class TodoDropdown(tk.Toplevel):
 
             text = tk.Label(
                 row, text=item["text"], anchor="w", justify="left",
-                wraplength=self.WIDTH - 80,
+                wraplength=self.WIDTH - 90,
                 font=self.done_font if item["done"] else self.task_font,
                 fg=PALETTE["grey"] if item["done"] else PALETTE["text_dark"],
                 bg=PALETTE["yellow"]
@@ -649,7 +682,7 @@ class TodoDropdown(tk.Toplevel):
             text.pack(side="left", fill="x", expand=True, padx=(2, 4))
 
             delete = tk.Label(
-                row, text="✕", font=(FONT_NAME, 10, "bold"),
+                row, text="✕", font=(FONT_NAME, self.TASK_SIZE, "bold"),
                 fg=PALETTE["dark_pink"], bg=PALETTE["yellow"], cursor="hand2"
             )
             delete.pack(side="right", anchor="n")
@@ -695,7 +728,7 @@ class TodoDropdown(tk.Toplevel):
         self.attributes("-topmost", True)
         self.lift()
         self.is_open = True
-        self.after(50, self.entry.focus_force)
+        self.after(50, self.focus_entry)
 
     def close(self):
         self.withdraw()
