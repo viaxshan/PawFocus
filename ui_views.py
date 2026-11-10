@@ -148,8 +148,19 @@ class DashboardWindow(tk.Tk):
         )
         self._pack(self.status_label, pady=5)
 
-        # Buttons are packed before the timer so they always keep their spot at the bottom,
-        # and the timer box soaks up any extra height.
+        # The timer box keeps its natural height; its text still scales with the window
+        self.timer_label = tk.Label(
+            self.frame, text="00:00", font=self.fonts["timer"],
+            fg=PALETTE["text_white"], bg=PALETTE["bg_dark"], bd=3, relief="solid"
+        )
+        self._pack(self.timer_label, pady=5, fill="x")
+
+        self.toggle_overlay_clock_btn = tk.Button(
+            self.frame, text="⏰ Hide Clock on Cat", font=self.fonts["section"],
+            bg=PALETTE["yellow"], fg=PALETTE["text_dark"], bd=2, relief="solid"
+        )
+        self._pack(self.toggle_overlay_clock_btn, fill="x", pady=5)
+
         btn_box = tk.Frame(self.frame, bg=PALETTE["bg_light"])
         self._pack(btn_box, side="bottom", fill="x", pady=5)
 
@@ -164,18 +175,6 @@ class DashboardWindow(tk.Tk):
             bg=PALETTE["yellow"], fg=PALETTE["text_dark"], bd=2, relief="solid", width=12, state="disabled"
         )
         self._pack(self.cancel_btn, side="left", expand=True, padx=5)
-
-        self.toggle_overlay_clock_btn = tk.Button(
-            self.frame, text="⏰ Hide Clock on Cat", font=self.fonts["section"],
-            bg=PALETTE["yellow"], fg=PALETTE["text_dark"], bd=2, relief="solid"
-        )
-        self._pack(self.toggle_overlay_clock_btn, side="bottom", fill="x", pady=5)
-
-        self.timer_label = tk.Label(
-            self.frame, text="00:00", font=self.fonts["timer"],
-            fg=PALETTE["text_white"], bg=PALETTE["bg_dark"], bd=3, relief="solid"
-        )
-        self._pack(self.timer_label, pady=5, fill="both", expand=True)
 
         self.bind("<Configure>", self._on_window_configure)
 
