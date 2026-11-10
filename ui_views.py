@@ -275,7 +275,53 @@ class KittyOverlay(tk.Toplevel):
         self.scale_level = 2
         self.show_clock = True
 
+        # On a transparent macOS window, Tk draws PNG images as invisible, but shapes and
+        # text show up fine. So on Mac the cat is drawn pixel-by-pixel as tiny squares.
+        self.draw_as_pixels = sys.platform.startswith("darwin")
+        self.pixel_grids = {}
+        if self.draw_as_pixels:
+            for state, img in self.base_images.items():
+                if img:
+                    self.pixel_grids[state] = self._read_pixels(img)
+
         self.redraw_overlay()
+
+    @staticmethod
+    def _read_pixels(img):
+        """Turns a PhotoImage into rows of colour strings (None = transparent pixel)."""
+        grid = []
+        for y in range(img.height()):
+            row = []
+            for x in range(img.width()):
+                if img.transparency_get(x, y):
+                    row.append(None)
+                else:
+                    r, g, b = img.get(x, y)
+                    row.append(f"#{r:02x}{g:02x}{b:02x}")
+            grid.append(row)
+        return grid
+
+    def _draw_pixel_cat(self, grid):
+        """Draws the pixel grid at the current size. Neighbouring same-colour pixels in a row
+        are merged into one rectangle, so this stays fast."""
+        scale = {1: 0.5, 2: 1.0, 3: 1.5}[self.scale_level]
+        src_h, src_w = len(grid), len(grid[0])
+        out_w, out_h = max(1, round(src_w * scale)), max(1, round(src_h * scale))
+        left = self.art_width // 2 - out_w // 2
+        top = self.art_height // 2 - out_h // 2
+
+        for ty in range(out_h):
+            src_row = grid[min(src_h - 1, int(ty / scale))]
+            run_color, run_start = None, 0
+            for tx in range(out_w + 1):
+                color = src_row[min(src_w - 1, int(tx / scale))] if tx < out_w else None
+                if color != run_color:
+                    if run_color is not None:
+                        self.canvas.create_rectangle(
+                            left + run_start, top + ty, left + tx, top + ty + 1,
+                            fill=run_color, outline="", tags="cat"
+                        )
+                    run_color, run_start = color, tx
 
     def get_bounds(self, x=None, y=None):
         """Returns (x, y, width, height) of the cat on screen. Pass x/y if you just moved it."""
@@ -307,8 +353,10 @@ class KittyOverlay(tk.Toplevel):
         self.redraw_overlay()
 
     def update_overlay_clock_text(self, time_str):
+        # Only the clock changes every second, so leave the cat alone
         self.current_time_str = time_str
-        self.redraw_overlay()
+        self.canvas.delete("clock")
+        self._draw_clock()
 
     def set_clock_visibility(self, visible):
         self.show_clock = visible
@@ -326,7 +374,10 @@ class KittyOverlay(tk.Toplevel):
         self.canvas.delete("all")
 
         img = self.current_images.get(self.active_state)
-        if img:
+        grid = self.pixel_grids.get(self.active_state)
+        if grid:
+            self._draw_pixel_cat(grid)
+        elif img:
             self.current_image_obj = self.canvas.create_image(self.art_width // 2, self.art_height // 2, image=img)
         else:
             emoji = {"sleeping": "💤", "reading": "📚", "playing": "🧶"}
@@ -334,24 +385,28 @@ class KittyOverlay(tk.Toplevel):
             self.canvas.create_rectangle(5, 5, self.art_width-5, self.art_height-5, fill=PALETTE["yellow"], outline=PALETTE["text_dark"], width=2)
             self.canvas.create_text(self.art_width // 2, self.art_height // 2, text=f"{emoji_char}\n[{self.active_state.upper()}]", font=(FONT_NAME, int(11 * (self.art_width/120))), fill=PALETTE["text_dark"], justify="center")
 
-        if self.show_clock:
-            font_sizes = {1: 12, 2: 18, 3: 26}
-            f_size = font_sizes[self.scale_level]
+        self._draw_clock()
 
-            clock_y = self.art_height + (self.clock_height // 2) - 6
+    def _draw_clock(self):
+        if not self.show_clock:
+            return
+        font_sizes = {1: 12, 2: 18, 3: 26}
+        f_size = font_sizes[self.scale_level]
 
-            for offset in [1, 2]:
-                self.canvas.create_text(
-                    (self.art_width // 2) + offset, clock_y + offset,
-                    text=self.current_time_str, font=(FONT_NAME, f_size, "bold"),
-                    fill=PALETTE["dark_pink"], justify="center"
-                )
+        clock_y = self.art_height + (self.clock_height // 2) - 6
 
+        for offset in [1, 2]:
             self.canvas.create_text(
-                self.art_width // 2, clock_y,
+                (self.art_width // 2) + offset, clock_y + offset,
                 text=self.current_time_str, font=(FONT_NAME, f_size, "bold"),
-                fill=PALETTE["text_white"], justify="center"
+                fill=PALETTE["dark_pink"], justify="center", tags="clock"
             )
+
+        self.canvas.create_text(
+            self.art_width // 2, clock_y,
+            text=self.current_time_str, font=(FONT_NAME, f_size, "bold"),
+            fill=PALETTE["text_white"], justify="center", tags="clock"
+        )
 
 
 class TodoDropdown(tk.Toplevel):
