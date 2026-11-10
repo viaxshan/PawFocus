@@ -34,8 +34,11 @@ A cozy, pastel-themed desktop overlay study timer built with Python and Tkinter.
 
 3. **Control the Kitty Overlay:**
    * **Start:** Click **▶ START**. Your settings entry boxes will lock, your kitty will switch to reading mode, and the clock will start counting down.
-   * **Move:** Left-click and drag anywhere on the cat to move it around your desktop. It stays on top of all your other windows.
+   * **Move:** Left-click and drag anywhere on the cat to move it around your desktop. It stays on top of all your other windows (it re-checks every half second), and only goes away when you close the dashboard.
+   * **To-Do List:** Click the cat (without dragging) to drop down your to-do list. Type a task and press Enter or **+ Add**, tick the box to mark it done, **✕** to delete, and **🧹 clear finished** to tidy up. Click the cat again or press Esc to fold it away. Tasks are saved to `todos.json` in the project folder, so they're still there next time.
    * **Hide Time:** Click **Hide/Show Clock on Cat** on the dashboard to toggle the numbers on and off if they distract you.
    * **Resize:** Move the **Kitty Scale Size Settings** slider to instantly resize the cat to 50%, 100%, or 150%.
    * **Alerts:** When time is up, an alarm rings and a popup appears to tell you it's break time. 
    * **Stop:** Click the red **❌ STOP** button anytime to cancel the ongoing timer.
+
+4. **Resize the Dashboard:** Drag the dashboard window's edges and all the text, buttons and spacing scale to fit. It won't shrink below 320×540, and it stops growing at 200%.
