@@ -40,6 +40,124 @@ MIN_WIDTH, MIN_HEIGHT = 320, 540   # cut-off: the window can't be dragged smalle
 MAX_SCALE = 2.0                    # stop growing past 200% so things don't get silly on huge monitors
 
 
+def _shade(hex_color, amount=0.12):
+    """Mixes a colour slightly toward the dark text colour (used for the pressed look)."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    dr, dg, db = (int(PALETTE["text_dark"][i:i + 2], 16) for i in (1, 3, 5))
+    mix = lambda c, d: round(c + (d - c) * amount)
+    return f"#{mix(r, dr):02x}{mix(g, dg):02x}{mix(b, db):02x}"
+
+
+class FlatButton(tk.Frame):
+    """A button drawn from a Frame (the border) and a Label (the face).
+
+    macOS ignores the colours, borders and relief of a normal tk.Button and always draws
+    its own rounded system button. Frames and Labels keep their colours on every OS,
+    so this looks the same on Mac and Windows. It accepts the same config() options the
+    controller uses: text, command and state.
+    """
+
+    def __init__(self, parent, text="", command=None, font=None, bg=PALETTE["blue"],
+                 fg=PALETTE["text_dark"], border=2, width=None, state="normal", padx=6, pady=3):
+        super().__init__(parent, bg=PALETTE["text_dark"], padx=border, pady=border)
+        self._face_bg = bg
+        self._face_fg = fg
+        self._command = command
+        self._state = state
+
+        self.label = tk.Label(self, text=text, font=font, bg=bg, fg=fg, padx=padx, pady=pady)
+        if width:
+            self.label.config(width=width)
+        self.label.pack(fill="both", expand=True)
+
+        for widget in (self, self.label):
+            widget.bind("<ButtonPress-1>", self._on_press)
+            widget.bind("<ButtonRelease-1>", self._on_release)
+        self._refresh_look()
+
+    def _refresh_look(self, pressed=False):
+        enabled = self._state != "disabled"
+        self.label.config(
+            bg=_shade(self._face_bg) if pressed else self._face_bg,
+            fg=self._face_fg if enabled else PALETTE["grey"],
+            cursor="hand2" if enabled else ""
+        )
+
+    def _on_press(self, event):
+        if self._state != "disabled":
+            self._refresh_look(pressed=True)
+
+    def _on_release(self, event):
+        if self._state == "disabled":
+            return
+        self._refresh_look()
+        # Only fire if the mouse is still over the button (lets you "cancel" a click by dragging off)
+        if self.winfo_containing(event.x_root, event.y_root) in (self, self.label) and self._command:
+            self._command()
+
+    def configure(self, cnf=None, **kw):
+        if cnf:
+            kw.update(cnf)
+        if "command" in kw:
+            self._command = kw.pop("command")
+        if "state" in kw:
+            self._state = kw.pop("state")
+        if "bg" in kw:
+            self._face_bg = kw.pop("bg")
+        if "fg" in kw:
+            self._face_fg = kw.pop("fg")
+        label_opts = {k: kw.pop(k) for k in ("text", "font", "width") if k in kw}
+        if label_opts:
+            self.label.config(**label_opts)
+        if kw:
+            super().configure(**kw)
+        self._refresh_look()
+
+    config = configure
+
+
+class FlatDropdown(FlatButton):
+    """Replacement for tk.OptionMenu, which macOS also draws as a native grey/blue control."""
+
+    def __init__(self, parent, variable, options, font=None, menu_font=None, **kw):
+        super().__init__(parent, font=font, command=self._open_menu, **kw)
+        self.variable = variable
+        self.menu = tk.Menu(
+            self, tearoff=0, font=menu_font,
+            bg=PALETTE["yellow"], fg=PALETTE["text_dark"],
+            activebackground=PALETTE["pink"], activeforeground=PALETTE["text_dark"]
+        )
+        for option in options:
+            self.menu.add_command(label=option, command=lambda o=option: self.variable.set(o))
+        self.variable.trace_add("write", lambda *args: self._show_value())
+        self._show_value()
+
+    def _show_value(self):
+        self.label.config(text=f"{self.variable.get()}  ▾")
+
+    def _open_menu(self):
+        self.menu.tk_popup(self.winfo_rootx(), self.winfo_rooty() + self.winfo_height())
+
+
+def make_bordered_entry(parent, font, width=None, justify="left"):
+    """An Entry with a thin dark outline that looks the same on Mac and Windows.
+
+    Returns (outline_frame, entry): place the frame with pack/grid, use the entry for text.
+    Colours are set explicitly so macOS dark mode doesn't turn the boxes black.
+    """
+    outline = tk.Frame(parent, bg=PALETTE["text_dark"], padx=1, pady=1)
+    entry = tk.Entry(
+        outline, font=font, justify=justify, relief="flat", bd=2, highlightthickness=0,
+        bg="#ffffff", fg=PALETTE["text_dark"], insertbackground=PALETTE["text_dark"],
+        disabledbackground="#ececec", disabledforeground=PALETTE["grey"],
+        selectbackground=PALETTE["pink"], selectforeground=PALETTE["text_dark"]
+    )
+    if width:
+        entry.config(width=width)
+    entry.pack(fill="both", expand=True)
+    return outline, entry
+
+
 class DashboardWindow(tk.Tk):
     def __init__(self, methods_list):
         super().__init__()
@@ -78,12 +196,10 @@ class DashboardWindow(tk.Tk):
         self._pack(self.title_label, pady=5)
 
         self.selected_method = tk.StringVar(value=methods_list[0])
-        self.dropdown = tk.OptionMenu(self.frame, self.selected_method, *methods_list)
-        self.dropdown.config(
-            bg=PALETTE["blue"], fg=PALETTE["text_dark"],
-            font=self.fonts["dropdown"], bd=2, relief="solid", highlightthickness=0
+        self.dropdown = FlatDropdown(
+            self.frame, self.selected_method, methods_list,
+            font=self.fonts["dropdown"], menu_font=self.fonts["menu"], bg=PALETTE["blue"]
         )
-        self.dropdown["menu"].config(bg=PALETTE["yellow"], fg=PALETTE["text_dark"], font=self.fonts["menu"])
         self._pack(self.dropdown, pady=5, fill="x")
 
         self.input_frame = tk.LabelFrame(
@@ -96,22 +212,22 @@ class DashboardWindow(tk.Tk):
 
         study_lbl = tk.Label(self.input_frame, text="Study Mins:", font=self.fonts["body"], bg=PALETTE["bg_light"], fg=PALETTE["text_dark"])
         self._grid(study_lbl, row=0, column=0, sticky="e", pady=2)
-        self.study_entry = tk.Entry(self.input_frame, width=6, font=self.fonts["body"], bd=1, relief="solid", justify="center")
-        self._grid(self.study_entry, row=0, column=1, padx=5, pady=2)
+        study_box, self.study_entry = make_bordered_entry(self.input_frame, self.fonts["body"], width=6, justify="center")
+        self._grid(study_box, row=0, column=1, padx=5, pady=2)
 
         break_lbl = tk.Label(self.input_frame, text="Break Mins:", font=self.fonts["body"], bg=PALETTE["bg_light"], fg=PALETTE["text_dark"])
         self._grid(break_lbl, row=0, column=2, sticky="e", pady=2)
-        self.break_entry = tk.Entry(self.input_frame, width=6, font=self.fonts["body"], bd=1, relief="solid", justify="center")
-        self._grid(self.break_entry, row=0, column=3, padx=5, pady=2)
+        break_box, self.break_entry = make_bordered_entry(self.input_frame, self.fonts["body"], width=6, justify="center")
+        self._grid(break_box, row=0, column=3, padx=5, pady=2)
 
         rounds_lbl = tk.Label(self.input_frame, text="Rounds:", font=self.fonts["body"], bg=PALETTE["bg_light"], fg=PALETTE["text_dark"])
         self._grid(rounds_lbl, row=1, column=0, sticky="e", pady=5)
-        self.rounds_entry = tk.Entry(self.input_frame, width=6, font=self.fonts["body"], bd=1, relief="solid", justify="center")
-        self._grid(self.rounds_entry, row=1, column=1, padx=5, pady=5)
+        rounds_box, self.rounds_entry = make_bordered_entry(self.input_frame, self.fonts["body"], width=6, justify="center")
+        self._grid(rounds_box, row=1, column=1, padx=5, pady=5)
 
-        self.save_custom_btn = tk.Button(
+        self.save_custom_btn = FlatButton(
             self.input_frame, text="💾 Apply Settings", font=self.fonts["apply"],
-            bg=PALETTE["blue"], fg=PALETTE["text_dark"], bd=1, relief="solid"
+            bg=PALETTE["blue"], border=1
         )
         self._grid(self.save_custom_btn, row=1, column=2, columnspan=2, sticky="we", padx=5, pady=5)
 
@@ -155,24 +271,24 @@ class DashboardWindow(tk.Tk):
         )
         self._pack(self.timer_label, pady=5, fill="x")
 
-        self.toggle_overlay_clock_btn = tk.Button(
+        self.toggle_overlay_clock_btn = FlatButton(
             self.frame, text="⏰ Hide Clock on Cat", font=self.fonts["section"],
-            bg=PALETTE["yellow"], fg=PALETTE["text_dark"], bd=2, relief="solid"
+            bg=PALETTE["yellow"]
         )
         self._pack(self.toggle_overlay_clock_btn, fill="x", pady=5)
 
         btn_box = tk.Frame(self.frame, bg=PALETTE["bg_light"])
         self._pack(btn_box, side="bottom", fill="x", pady=5)
 
-        self.start_btn = tk.Button(
+        self.start_btn = FlatButton(
             btn_box, text="▶ START", font=self.fonts["button"],
-            bg=PALETTE["blue"], fg=PALETTE["text_dark"], bd=2, relief="solid", width=12
+            bg=PALETTE["blue"], width=12, pady=5
         )
         self._pack(self.start_btn, side="left", expand=True, padx=5)
 
-        self.cancel_btn = tk.Button(
+        self.cancel_btn = FlatButton(
             btn_box, text="❌ STOP", font=self.fonts["button"],
-            bg=PALETTE["yellow"], fg=PALETTE["text_dark"], bd=2, relief="solid", width=12, state="disabled"
+            bg=PALETTE["yellow"], width=12, pady=5, state="disabled"
         )
         self._pack(self.cancel_btn, side="left", expand=True, padx=5)
 
@@ -451,15 +567,14 @@ class TodoDropdown(tk.Toplevel):
 
         entry_row = tk.Frame(body, bg=PALETTE["yellow"])
         entry_row.pack(fill="x", pady=(6, 6))
-        self.entry = tk.Entry(entry_row, font=self.task_font, bd=1, relief="solid")
-        self.entry.pack(side="left", fill="x", expand=True, ipady=2)
+        entry_box, self.entry = make_bordered_entry(entry_row, self.task_font)
+        entry_box.pack(side="left", fill="both", expand=True)
         self.entry.bind("<Return>", lambda e: self._submit())
-        self.add_btn = tk.Button(
+        self.add_btn = FlatButton(
             entry_row, text="+ Add", font=(FONT_NAME, 9, "bold"),
-            bg=PALETTE["blue"], fg=PALETTE["text_dark"], bd=1, relief="solid",
-            command=self._submit
+            bg=PALETTE["blue"], border=1, command=self._submit
         )
-        self.add_btn.pack(side="left", padx=(4, 0))
+        self.add_btn.pack(side="left", fill="y", padx=(4, 0))
 
         list_wrap = tk.Frame(body, bg=PALETTE["yellow"])
         list_wrap.pack(fill="both", expand=True)
