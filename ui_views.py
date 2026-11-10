@@ -240,12 +240,23 @@ class KittyOverlay(tk.Toplevel):
         self.overrideredirect(True)
         self.attributes("-topmost", True)
 
-        self.chroma_color = "#abcdef"
-        self.canvas_bg = self.chroma_color if sys.platform.startswith("win") else PALETTE["blue"]
+        # Make everything behind the cat see-through
         if sys.platform.startswith("win"):
+            # Windows: any pixel of exactly this colour becomes invisible. It's a shade
+            # next to the clock's pink shadow, so the soft edges of the clock text blend
+            # into pink instead of leaving a blue-ish halo. (Not used anywhere in the cat art.)
+            self.chroma_color = "#8c4d7b"
+            self.canvas_bg = self.chroma_color
             self.config(bg=self.chroma_color)
             self.attributes("-transparentcolor", self.chroma_color)
+        elif sys.platform.startswith("darwin"):
+            # macOS: Tk's special transparent colour + a transparent window
+            self.canvas_bg = "systemTransparent"
+            self.config(bg="systemTransparent")
+            self.attributes("-transparent", True)
         else:
+            # Linux can't do per-pixel transparency in Tk, so keep the coloured box there
+            self.canvas_bg = PALETTE["blue"]
             self.config(bg=PALETTE["blue"])
             self.attributes("-alpha", 0.95)
 
